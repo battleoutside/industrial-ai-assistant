@@ -1,6 +1,11 @@
 spring:
+  config:
+    import: optional:file:.env[.properties]
+
   application:
-    name: ai-code-helper
+    name: industrial-ai-assistant
+
+
 langchain4j:
   community:
     dashscope:

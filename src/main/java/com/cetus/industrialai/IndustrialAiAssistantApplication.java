@@ -1,13 +1,13 @@
-package com.cetus.aicodehelp;
+package com.cetus.industrialai;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class AiCodeHelpApplication {
+public class IndustrialAiAssistantApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(AiCodeHelpApplication.class, args);
+        SpringApplication.run(IndustrialAiAssistantApplication.class, args);
     }
 
 }
