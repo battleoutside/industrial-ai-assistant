@@ -3,13 +3,11 @@
 ####################
 .env
 
-
 ####################
 # Java Maven
 ####################
 target/
 *.class
-
 .mvn/wrapper/maven-wrapper.jar
 
 
@@ -21,28 +19,30 @@ target/
 *.iws
 *.ipr
 
-
 ####################
 # Node
 ####################
 node_modules/
 dist/
 
-
 ####################
 # Logs
 ####################
 *.log
-
 
 ####################
 # VS Code
 ####################
 .vscode/
 
-
 ####################
 # OS
 ####################
 .DS_Store
 Thumbs.db
+
+####################
+# Temp
+####################
+src/main/resources/docs/
+src/main/resources/system-prompt.txt

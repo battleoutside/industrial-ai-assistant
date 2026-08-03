@@ -1,7 +1,6 @@
 spring:
   config:
-    import: optional:file:.env[.properties]
-
+    import: optional:file:.env[.properties] #加载.env文件的环境变量DASHSCOPE_API_KEY
   application:
     name: industrial-ai-assistant
 
@@ -12,3 +11,8 @@ langchain4j:
       chat-model:
         model-name: qwen-plus
         api-key: ${DASHSCOPE_API_KEY}
+      embedding-model:
+        model-name: text-embedding-v4
+        api-key: ${DASHSCOPE_API_KEY}
+bigmodel:
+  api-key: ${BIGMODEL_API_KEY}
