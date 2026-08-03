@@ -12,7 +12,7 @@ langchain4j:
         model-name: qwen-plus
         api-key: ${DASHSCOPE_API_KEY}
       embedding-model:
-        model-name: text-embedding-v4
+        model-name: text-embedding-v3
         api-key: ${DASHSCOPE_API_KEY}
 bigmodel:
   api-key: ${BIGMODEL_API_KEY}
