@@ -3,7 +3,6 @@ package com.cetus.industrialai.controller;
 import com.cetus.industrialai.ai.IndustrialAiAssistantService;
 import jakarta.annotation.Resource;
 import org.springframework.http.codec.ServerSentEvent;
-import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;

@@ -1,13 +1,10 @@
 package com.cetus.industrialai.ai;
 
 import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.rag.content.Content;
 import dev.langchain4j.service.Result;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import java.util.List;
 
 @SpringBootTest
 public class IndustrialAiAssistantServiceTest {
