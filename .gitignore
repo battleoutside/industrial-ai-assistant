@@ -46,3 +46,4 @@ Thumbs.db
 ####################
 src/main/resources/docs/
 src/main/resources/system-prompt.txt
+ai-code-helper-frontend/

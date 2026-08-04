@@ -1,10 +1,17 @@
 package com.cetus.industrialai.ai;
 
+import com.cetus.industrialai.ai.guardrail.SafeInputGuardrail;
+import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.Result;
 import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.service.guardrail.InputGuardrails;
+import reactor.core.publisher.Flux;
+
 import java.util.List;
 
 //@AiService
+@InputGuardrails({SafeInputGuardrail.class})
 public interface IndustrialAiAssistantService {
 
     @SystemMessage(fromResource = "system-prompt.txt")
@@ -38,5 +45,7 @@ public interface IndustrialAiAssistantService {
     @SystemMessage(fromResource = "system-prompt.txt")
     Result<String> chatWithRag(String userMessage);
 
+    // 流式对话
+    Flux<String> chatStream(@MemoryId int memoryId, @UserMessage String userMessage);
 
 }

@@ -32,10 +32,9 @@ public class McpConfig {
                 .transport(transport)
                 .build();
         // 从 MCP 客户端获取工具
-        McpToolProvider toolProvider = McpToolProvider.builder()
+        return McpToolProvider.builder()
                 .mcpClients(mcpClient)
                 .build();
-        return toolProvider;
     }
 
 }
