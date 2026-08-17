@@ -4,9 +4,11 @@ import dev.langchain4j.data.message.ImageContent;
 import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.UserMessage;
 import jakarta.annotation.Resource;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
+@Tag("integration")
 @SpringBootTest
 class IndustrialAiAssistantTest {
 
@@ -22,7 +24,7 @@ class IndustrialAiAssistantTest {
     void chatWithMessage() {
         UserMessage userMessage = UserMessage.from(
                 TextContent.from("描述图片"),
-                ImageContent.from("https://www.codefather.cn/logo.png")
+                ImageContent.from("https://picsum.photos/200/300")
         );
         industrialAiAssistant.chatWithMessage(userMessage);
     }

@@ -2,6 +2,7 @@ package com.cetus.industrialai.ai;
 
 import com.cetus.industrialai.ai.rag.KnowledgeBaseIngestor;
 import jakarta.annotation.Resource;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -14,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * description: RAG 本地持久化存储测试
  **/
+@Tag("integration")
 @SpringBootTest
 public class KnowledgeBaseIngestorTest {
 

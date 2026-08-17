@@ -14,13 +14,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * description: 面试题搜索工具
+ * description: Jsoup搜索工具; 工具可以自己开发，也可通过 MCP 直接使用别人开发好的工具。
  **/
 @Slf4j
 public class InterviewQuestionTool {
 
     /*
-     * 从面试鸭网站获取关键词相关的面试题列表
+     * 从面试鸭网站获取关键词相关的面试题列表  
      * @param keyword 搜索关键词（如"redis"、"java多线程"）
      * @return 面试题列表，若失败则返回错误信息
      */
@@ -28,7 +28,7 @@ public class InterviewQuestionTool {
             Retrieves relevant interview questions from mianshiya.com based on a keyword.
             Use this tool when the user asks for interview questions about specific technologies,
             programming concepts, or job-related topics. The input should be a clear search term.
-            """)
+            """) //@Tool暴露工具
     public String searchInterviewQuestions(@P(value = "the keyword to search") String keyword) {
         System.out.println("进入搜索工具");
         List<String> questions = new ArrayList<>();

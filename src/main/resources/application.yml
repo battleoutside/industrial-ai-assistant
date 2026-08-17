@@ -1,6 +1,6 @@
 spring:
   config:
-    import: optional:file:.env[.properties] #加载.env文件的环境变量DASHSCOPE_API_KEY
+    import: optional:file:.env[.properties] # 加载.env文件的环境变量DASHSCOPE_API_KEY
   application:
     name: industrial-ai-assistant
 

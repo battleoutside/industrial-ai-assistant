@@ -3,9 +3,11 @@ package com.cetus.industrialai.ai;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.Result;
 import jakarta.annotation.Resource;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
+@Tag("integration")
 @SpringBootTest
 public class IndustrialAiAssistantServiceTest {
 
@@ -37,7 +39,7 @@ public class IndustrialAiAssistantServiceTest {
     void chatWithRag() {
         Result<String> result =
                 industrialAiAssistantService.chatWithRag(
-                        "Java 的推荐学习路线是什么？" //高频测试中，插损、回损不达标该如何排查？
+                        "高频测试中，插损、回损不达标该如何排查？"
                 );
 
         System.out.println("AI回答：" + result.content());
