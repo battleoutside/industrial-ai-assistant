@@ -32,23 +32,11 @@
         <test.excluded.groups>integration</test.excluded.groups>
     </properties>
     <dependencies>
-        <!--        引入Flux响应式包依赖-->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-reactor</artifactId>
-            <version>1.1.0-beta7</version>
-        </dependency>
         <!-- https://mvnrepository.com/artifact/dev.langchain4j/langchain4j-mcp -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-mcp</artifactId>
             <version>1.1.0-beta7</version>
-        </dependency>
-        <!--        Tools调用需要引入 Jsoup 库-->
-        <dependency>
-            <groupId>org.jsoup</groupId>
-            <artifactId>jsoup</artifactId>
-            <version>1.20.1</version>
         </dependency>
         <!--        RAG 简易配置/默认配置-->
         <!--        <dependency>-->

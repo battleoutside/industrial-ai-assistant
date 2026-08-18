@@ -7,8 +7,8 @@ import com.cetus.industrialai.quote.model.MaterialChangeAssessment;
 import com.cetus.industrialai.quote.model.MaterialChangeItem;
 import com.cetus.industrialai.quote.model.QuoteRequest;
 import com.cetus.industrialai.quote.model.QuoteResult;
-import com.cetus.industrialai.quote.tool.HistoricalQuoteTool;
-import com.cetus.industrialai.quote.tool.QuoteCalculationTool;
+import com.cetus.industrialai.quote.calculator.QuoteCalculator;
+import com.cetus.industrialai.quote.repository.HistoricalQuoteRepository;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -74,22 +74,22 @@ class QuoteAgentServiceTest {
                         List.of("新增耐高温保护套管，但未提供其单件价格")
                 );
 
-        HistoricalQuoteTool historicalQuoteTool =
-                mock(HistoricalQuoteTool.class);
+        HistoricalQuoteRepository historicalQuoteRepository =
+                mock(HistoricalQuoteRepository.class);
         QuoteAnalysisService quoteAnalysisService =
                 mock(QuoteAnalysisService.class);
 
-        when(historicalQuoteTool.searchSimilarCases(request))
+        when(historicalQuoteRepository.searchSimilarCases(request))
                 .thenReturn(List.of(referenceCase));
         when(quoteAnalysisService.analyze(request, referenceCase))
                 .thenReturn(assessment);
         when(quoteAnalysisService.verifyExplicitMaterialCosts(request))
                 .thenReturn(verification);
 
-        QuoteAgentService service = new QuoteAgentService(
-                historicalQuoteTool,
+        QuoteWorkflowService service = new QuoteWorkflowService(
+                historicalQuoteRepository,
                 quoteAnalysisService,
-                new QuoteCalculationTool()
+                new QuoteCalculator()
         );
 
         QuoteResult result = service.generateQuote(request);

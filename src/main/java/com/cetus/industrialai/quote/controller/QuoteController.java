@@ -2,7 +2,7 @@ package com.cetus.industrialai.quote.controller;
 
 import com.cetus.industrialai.quote.model.QuoteRequest;
 import com.cetus.industrialai.quote.model.QuoteResult;
-import com.cetus.industrialai.quote.service.QuoteAgentService;
+import com.cetus.industrialai.quote.service.QuoteWorkflowService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,9 +23,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/quote")
 public class QuoteController {
 
-    private final QuoteAgentService quoteAgentService;
+    private final QuoteWorkflowService quoteAgentService;
 
-    public QuoteController(QuoteAgentService quoteAgentService) {
+    public QuoteController(QuoteWorkflowService quoteAgentService) {
         this.quoteAgentService = quoteAgentService;
     }
 

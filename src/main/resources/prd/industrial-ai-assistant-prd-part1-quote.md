@@ -133,10 +133,10 @@ flowchart TD
 | 组件 | 主要职责 |
 |---|---|
 | `QuoteController` | 接收 HTTP 请求并执行参数校验 |
-| `HistoricalQuoteTool` | 检索最相似历史报价快照；MVP 使用内置数据 |
+| `HistoricalQuoteRepository` | 检索最相似历史报价快照；MVP 使用内置数据 |
 | `QuoteAnalysisService` | 调用千问完成差异分析和独立新增成本核验 |
-| `QuoteCalculationTool` | 校验历史成本、执行保底规则并计算三阶梯报价 |
-| `QuoteAgentService` | 编排完整链路，处理正常结果和人工复核分支 |
+| `QuoteCalculator` | 校验历史成本、执行保底规则并计算三阶梯报价 |
+| `QuoteWorkflowService` | 编排完整链路，处理正常结果和人工复核分支 |
 
 ## 6. 功能需求
 
