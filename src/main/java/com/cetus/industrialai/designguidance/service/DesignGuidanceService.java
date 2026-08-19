@@ -8,6 +8,7 @@ import com.cetus.industrialai.designguidance.model.DesignGuidanceResponse;
 import com.cetus.industrialai.designguidance.model.DesignGuidanceResponse.Recommendation;
 import com.cetus.industrialai.designguidance.model.DesignGuidanceResponse.Source;
 import com.cetus.industrialai.designguidance.model.DesignGuidanceResponse.Status;
+import com.cetus.industrialai.designguidance.review.GuidanceGroundednessReviewer;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.rag.content.Content;
@@ -17,8 +18,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -35,17 +38,20 @@ public class DesignGuidanceService {
 
     private final ContentRetriever contentRetriever;
     private final DesignGuidanceGenerator designGuidanceGenerator;
+    private final GuidanceGroundednessReviewer groundednessReviewer;
 
     public DesignGuidanceService(
             ContentRetriever contentRetriever,
-            DesignGuidanceGenerator designGuidanceGenerator
+            DesignGuidanceGenerator designGuidanceGenerator,
+            GuidanceGroundednessReviewer groundednessReviewer
     ) {
         this.contentRetriever = contentRetriever;
         this.designGuidanceGenerator = designGuidanceGenerator;
+        this.groundednessReviewer = groundednessReviewer;
     }
 
     /**
-     * 执行工程指导完整链路。
+     * 执行工程设计指导完整链路。
      *
      * <p>检索不到达到阈值的知识片段时直接返回，
      * 不调用千问，避免模型在没有企业资料依据时凭空给出建议。</p>
@@ -64,7 +70,7 @@ public class DesignGuidanceService {
         try {
             contents = contentRetriever.retrieve(new Query(retrievalQuestion));
         } catch (RuntimeException exception) {
-            log.warn("工程指导知识检索失败", exception);
+            log.warn("工程设计指导知识检索失败", exception);
             return manualReview(
                     "知识检索服务暂时不可用，系统未生成自动工程建议。",
                     List.of(),
@@ -93,7 +99,7 @@ public class DesignGuidanceService {
                     buildEvidencePrompt(request, contents, sources)
             );
         } catch (RuntimeException exception) {
-            log.warn("工程指导模型生成或结构化响应解析失败", exception);
+            log.warn("工程设计指导模型生成或结构化响应解析失败", exception);
             return manualReview(
                     "模型服务暂时不可用，已保留本次召回的工程资料。",
                     sources,
@@ -101,12 +107,20 @@ public class DesignGuidanceService {
             );
         }
 
-        // -------- 第六阶段：校验与最终组装 --------
-        // 1. 校验模型返回的 basisSourceIds 是否都在有效的 S1~S3 范围内。
-        // 2. 过滤掉没有真实证据支撑的虚假建议。
-        // 3. 将模型草稿（GuidanceDraft）和来源卡片（sources）合并，
-        // 生成最终的 DesignGuidanceResponse 返回给前端。
-        return buildValidatedResponse(draft, sources);
+        // -------- 第六阶段：Java + Reviewer 后置审核 --------
+        // 1. Citation Validity：Java 白名单校验来源编号。
+        // 2. Groundedness：Reviewer 判断建议内容是否真的被引用证据支持。
+        // 3. Reviewer 异常时采用 fail-closed，转人工复核，不放行未审核建议。
+        try {
+            return buildValidatedResponse(draft, contents, sources);
+        } catch (RuntimeException exception) {
+            log.warn("工程设计指导 Groundedness 审核失败", exception);
+            return manualReview(
+                    "工程建议证据一致性审核暂时不可用，已保留本次召回的工程资料。",
+                    sources,
+                    "自动建议未通过证据一致性审核，请稍后重试或由工程师查看召回资料"
+            );
+        }
     }
 
     /**
@@ -157,9 +171,9 @@ public class DesignGuidanceService {
     }
 
     /**
-     * 构建发送给 LLM 的 "用户提示词""。
+     * 构建发送给 LLM 的“用户提示词”。
      *
-     * <p>此处 "用户提示词" 包含两部分：
+     * <p>此处“用户提示词”包含两部分：
      * 用户工程问题（结构化查询文本）+ 知识库证据（编号 S1..S3，含来源标题）。
      * 后续还会结合编排的 "系统提示词" ，一并给 LLM 处理。
      * </p>
@@ -167,7 +181,7 @@ public class DesignGuidanceService {
      * @param request  原始用户请求
      * @param contents 检索返回的原始内容列表
      * @param sources  来源卡片列表（含编号和标题）
-     * @return 拼接好的 "用户提示词"
+     * @return 拼接好的“用户提示词”
      */
     private String buildEvidencePrompt(
             DesignGuidanceRequest request,
@@ -200,22 +214,33 @@ public class DesignGuidanceService {
      * <p>核心逻辑：以 sources 的编号为白名单，过滤掉模型中引用无效编号的建议。
      * 若过滤后无有效建议，状态自动降级为 NEED_MORE_INFO 并追加提示信息。</p>
      *
-     * @param draft   大模型返回的结构化草稿（可能为 null）
-     * @param sources 有效来源卡片列表（编号 S1..S5）
+     * @param draft    大模型返回的结构化草稿（可能为 null）
+     * @param contents 本次 RAG 检索到的完整证据内容
+     * @param sources  有效来源卡片列表（编号 S1..S5）
      * @return 校验合格且结构完整的最终响应
      */
     private DesignGuidanceResponse buildValidatedResponse(
             GuidanceDraft draft,
+            List<Content> contents,
             List<Source> sources
     ) {
         // 构建有效编号白名单
         Set<String> validSourceIds = new LinkedHashSet<>();
         sources.forEach(source -> validSourceIds.add(source.sourceId()));
 
-        // 过滤掉引用无效编号的建议
-        List<Recommendation> recommendations = validateRecommendations(
+        // 第一层硬约束：只保留具有真实来源编号的建议。
+        List<Recommendation> citationValidatedRecommendations = validateRecommendations(
                 draft == null ? null : draft.recommendations(),
                 validSourceIds
+        );
+
+        // 构建 sourceId -> 完整证据正文映射，供 Groundedness Reviewer 使用。
+        Map<String, String> evidenceBySourceId = buildEvidenceBySourceId(contents, sources);
+
+        // 第二层语义审核：检查 recommendation.action 是否真的被其引用证据支持。
+        List<Recommendation> recommendations = reviewGroundedness(
+                citationValidatedRecommendations,
+                evidenceBySourceId
         );
 
         // 复制缺失信息列表（可变）
@@ -227,13 +252,13 @@ public class DesignGuidanceService {
         Status status = parseStatus(draft == null ? null : draft.status());
         if (recommendations.isEmpty()) {
             status = Status.NEED_MORE_INFO;
-            missingInformation.add("未生成具有有效知识库引用的建议，需要补充条件或人工复核");
+            missingInformation.add("未通过知识库证据一致性审核，需要补充条件或人工复核");
         }
 
         // 摘要有则用，无则取默认值
         String summary = draft != null && hasText(draft.summary())
                 ? draft.summary().trim()
-                : "现有证据不足以形成可靠的工程指导。";
+                : "现有证据不足以形成可靠的工程设计指导。";
 
         return new DesignGuidanceResponse(
                 status,
@@ -244,6 +269,113 @@ public class DesignGuidanceService {
                 sources,
                 sources.size()
         );
+    }
+
+    /**
+     * 对已经通过 Citation Validity 的建议执行 Groundedness 审核。
+     *
+     * <p>MVP 阶段将整条 recommendation.action 作为一个 Claim：
+     * 只要 Reviewer 判断其中存在证据未支持的具体内容，就丢弃整条建议。
+     * 通过审核的建议会重新连续编号，避免过滤后出现步骤跳号。</p>
+     */
+    private List<Recommendation> reviewGroundedness(
+            List<Recommendation> recommendations,
+            Map<String, String> evidenceBySourceId
+    ) {
+        if (recommendations == null || recommendations.isEmpty()) {
+            return List.of();
+        }
+
+        List<Recommendation> supportedRecommendations = new ArrayList<>();
+        int step = 1;
+
+        for (Recommendation recommendation : recommendations) {
+            String reviewInput = buildGroundednessReviewInput(
+                    recommendation,
+                    evidenceBySourceId
+            );
+
+            GuidanceGroundednessReviewer.ReviewResult reviewResult =
+                    groundednessReviewer.review(reviewInput);
+
+            if (reviewResult == null) {
+                throw new IllegalStateException("Groundedness Reviewer 未返回有效审核结果");
+            }
+
+            if (reviewResult.supported()) {
+                supportedRecommendations.add(new Recommendation(
+                        step++,
+                        recommendation.action(),
+                        recommendation.basisSourceIds()
+                ));
+                continue;
+            }
+
+            String reason = reviewResult.reason();
+
+            log.info(
+                    "工程设计指导建议未通过 Groundedness 审核，原step={}，原因={}",
+                    recommendation.step(),
+                    reason
+            );
+        }
+        return List.copyOf(supportedRecommendations);
+    }
+
+    /**
+     * 为单条候选建议组装 Groundedness Reviewer 输入。
+     *
+     * <p>Reviewer 只会看到该建议以及它实际引用的证据，
+     * 不会看到未引用的其他知识片段，避免使用无关来源替建议兜底。</p>
+     */
+    private String buildGroundednessReviewInput(
+            Recommendation recommendation,
+            Map<String, String> evidenceBySourceId
+    ) {
+        StringBuilder input = new StringBuilder();
+        input.append("【候选工程建议】\n")
+                .append(recommendation.action())
+                .append("\n\n【对应知识库证据】\n");
+
+        for (String sourceId : recommendation.basisSourceIds()) {
+            String evidence = evidenceBySourceId.get(sourceId);
+            if (!hasText(evidence)) {
+                continue;
+            }
+
+            input.append('[')
+                    .append(sourceId)
+                    .append("]\n")
+                    .append(evidence)
+                    .append("\n\n");
+        }
+
+        return input.toString();
+    }
+
+    /**
+     * 构建本次检索的 sourceId -> 完整证据正文映射。
+     *
+     * <p>前端 Source 中只有截断摘要，Groundedness Reviewer 必须看到完整检索片段，
+     * 因此这里直接使用 Content 中的 TextSegment 原文。</p>
+     */
+    private Map<String, String> buildEvidenceBySourceId(
+            List<Content> contents,
+            List<Source> sources
+    ) {
+        Map<String, String> evidenceBySourceId = new LinkedHashMap<>();
+
+        int size = Math.min(contents.size(), sources.size());
+        for (int index = 0; index < size; index++) {
+            TextSegment segment = contents.get(index).textSegment();
+            if (segment != null && hasText(segment.text())) {
+                evidenceBySourceId.put(
+                        sources.get(index).sourceId(),
+                        segment.text().trim()
+                );
+            }
+        }
+        return Map.copyOf(evidenceBySourceId);
     }
 
     /**
