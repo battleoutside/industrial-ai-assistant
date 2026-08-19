@@ -5,6 +5,8 @@ import com.cetus.industrialai.designguidance.generation.DesignGuidanceGenerator.
 import com.cetus.industrialai.designguidance.generation.DesignGuidanceGenerator.RecommendationDraft;
 import com.cetus.industrialai.designguidance.model.DesignGuidanceRequest;
 import com.cetus.industrialai.designguidance.model.DesignGuidanceResponse;
+import com.cetus.industrialai.designguidance.review.GuidanceGroundednessReviewer;
+import com.cetus.industrialai.designguidance.review.GuidanceGroundednessReviewer.ReviewResult;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.rag.content.Content;
@@ -18,33 +20,39 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * 工程指导编排服务单元测试。
+ * 工程设计指导编排服务单元测试。
  *
- * <p>使用Mock替代Embedding和千问，默认Maven测试不会产生外部调用和Token费用。</p>
+ * <p>使用 Mock 替代 Embedding、千问生成模型和 Groundedness Reviewer，
+ * 默认 Maven 测试不会产生任何外部模型调用和 Token 费用。</p>
  */
 class DesignGuidanceServiceTest {
 
     private ContentRetriever contentRetriever;
     private DesignGuidanceGenerator designGuidanceGenerator;
+    private GuidanceGroundednessReviewer groundednessReviewer;
     private DesignGuidanceService designGuidanceService;
 
     @BeforeEach
     void setUp() {
         contentRetriever = mock(ContentRetriever.class);
         designGuidanceGenerator = mock(DesignGuidanceGenerator.class);
+        groundednessReviewer = mock(GuidanceGroundednessReviewer.class);
+
         designGuidanceService = new DesignGuidanceService(
                 contentRetriever,
-                designGuidanceGenerator
+                designGuidanceGenerator,
+                groundednessReviewer
         );
     }
 
     @Test
-    void shouldStopBeforeCallingModelWhenNoEvidenceIsRetrieved() {
+    void shouldStopBeforeCallingModelsWhenNoEvidenceIsRetrieved() {
         when(contentRetriever.retrieve(any(Query.class))).thenReturn(List.of());
 
         DesignGuidanceResponse response = designGuidanceService.analyze(sampleRequest());
@@ -55,7 +63,8 @@ class DesignGuidanceServiceTest {
         );
         assertEquals(0, response.evidenceCount());
         assertTrue(response.recommendations().isEmpty());
-        verifyNoInteractions(designGuidanceGenerator);
+
+        verifyNoInteractions(designGuidanceGenerator, groundednessReviewer);
     }
 
     @Test
@@ -68,11 +77,12 @@ class DesignGuidanceServiceTest {
         assertEquals(DesignGuidanceResponse.Status.MANUAL_REVIEW, response.status());
         assertEquals(0, response.evidenceCount());
         assertTrue(response.sources().isEmpty());
-        verifyNoInteractions(designGuidanceGenerator);
+
+        verifyNoInteractions(designGuidanceGenerator, groundednessReviewer);
     }
 
     @Test
-    void shouldKeepOnlyRecommendationsWithRealSourceIds() {
+    void shouldKeepRecommendationWhenCitationAndGroundednessBothPass() {
         Content content = mockContent(
                 "high-speed-cable-test-troubleshooting.md",
                 "# 插入损耗异常\n应先确认校准、参考平面、治具和连接状态。"
@@ -99,6 +109,10 @@ class DesignGuidanceServiceTest {
         );
         when(designGuidanceGenerator.generate(any(String.class))).thenReturn(draft);
 
+        // S1 合法且建议内容被证据支持，因此 Groundedness 审核通过。
+        when(groundednessReviewer.review(anyString()))
+                .thenReturn(new ReviewResult(true, "建议内容可由S1直接支持"));
+
         DesignGuidanceResponse response = designGuidanceService.analyze(sampleRequest());
 
         assertEquals(
@@ -115,7 +129,112 @@ class DesignGuidanceServiceTest {
     }
 
     @Test
-    void shouldKeepSourcesAndRequireManualReviewWhenModelFails() {
+    void shouldRemoveRecommendationWhenGroundednessReviewRejectsIt() {
+        Content content = mockContent(
+                "high-speed-cable-test-troubleshooting.md",
+                "# 插入损耗异常\n应先确认测试设备是否完成校准，并检查参考平面。"
+        );
+        when(contentRetriever.retrieve(any(Query.class))).thenReturn(List.of(content));
+
+        GuidanceDraft draft = new GuidanceDraft(
+                "GUIDANCE_PROVIDED",
+                "建议先检查测试系统。",
+                List.of(
+                        new RecommendationDraft(
+                                1,
+                                "采用SOLT或TRL重新校准测试设备。",
+                                List.of("S1")
+                        )
+                ),
+                List.of(),
+                List.of()
+        );
+        when(designGuidanceGenerator.generate(any(String.class))).thenReturn(draft);
+
+        // Citation Validity 可以通过，因为 S1 真实存在；
+        // 但 S1 没有支持 SOLT/TRL 具体方法，因此 Groundedness 审核拒绝。
+        when(groundednessReviewer.review(anyString()))
+                .thenReturn(new ReviewResult(
+                        false,
+                        "证据只支持确认校准状态，不支持SOLT或TRL具体方法"
+                ));
+
+        DesignGuidanceResponse response = designGuidanceService.analyze(sampleRequest());
+
+        assertEquals(DesignGuidanceResponse.Status.NEED_MORE_INFO, response.status());
+        assertTrue(response.recommendations().isEmpty());
+        assertTrue(
+                response.missingInformation().stream()
+                        .anyMatch(item -> item.contains("证据一致性审核"))
+        );
+    }
+
+    @Test
+    void shouldRequireManualReviewWhenGroundednessReviewerFails() {
+        Content content = mockContent(
+                "high-speed-cable-test-troubleshooting.md",
+                "# 回波损耗异常\n应检查测试参考平面和治具状态。"
+        );
+        when(contentRetriever.retrieve(any(Query.class))).thenReturn(List.of(content));
+
+        GuidanceDraft draft = new GuidanceDraft(
+                "GUIDANCE_PROVIDED",
+                "先确认测试条件。",
+                List.of(
+                        new RecommendationDraft(
+                                1,
+                                "检查测试参考平面和治具状态。",
+                                List.of("S1")
+                        )
+                ),
+                List.of(),
+                List.of()
+        );
+        when(designGuidanceGenerator.generate(any(String.class))).thenReturn(draft);
+        when(groundednessReviewer.review(anyString()))
+                .thenThrow(new IllegalStateException("模拟Groundedness审核异常"));
+
+        DesignGuidanceResponse response = designGuidanceService.analyze(sampleRequest());
+
+        assertEquals(DesignGuidanceResponse.Status.MANUAL_REVIEW, response.status());
+        assertEquals(1, response.evidenceCount());
+        assertEquals(1, response.sources().size());
+        assertTrue(response.recommendations().isEmpty());
+    }
+
+    @Test
+    void shouldRequireManualReviewWhenGroundednessReviewerReturnsNull() {
+        Content content = mockContent(
+                "high-speed-cable-test-troubleshooting.md",
+                "# 回波损耗异常\n应检查测试参考平面和治具状态。"
+        );
+        when(contentRetriever.retrieve(any(Query.class))).thenReturn(List.of(content));
+
+        GuidanceDraft draft = new GuidanceDraft(
+                "GUIDANCE_PROVIDED",
+                "先确认测试条件。",
+                List.of(
+                        new RecommendationDraft(
+                                1,
+                                "检查测试参考平面和治具状态。",
+                                List.of("S1")
+                        )
+                ),
+                List.of(),
+                List.of()
+        );
+        when(designGuidanceGenerator.generate(any(String.class))).thenReturn(draft);
+        when(groundednessReviewer.review(anyString())).thenReturn(null);
+
+        DesignGuidanceResponse response = designGuidanceService.analyze(sampleRequest());
+
+        assertEquals(DesignGuidanceResponse.Status.MANUAL_REVIEW, response.status());
+        assertEquals(1, response.evidenceCount());
+        assertTrue(response.recommendations().isEmpty());
+    }
+
+    @Test
+    void shouldKeepSourcesAndRequireManualReviewWhenGenerationModelFails() {
         Content content = mockContent(
                 "high-speed-cable-test-troubleshooting.md",
                 "# 回波损耗异常\n应检查测试参考平面、治具和阻抗不连续位置。"
@@ -130,6 +249,8 @@ class DesignGuidanceServiceTest {
         assertEquals(1, response.evidenceCount());
         assertEquals(1, response.sources().size());
         assertTrue(response.recommendations().isEmpty());
+
+        verifyNoInteractions(groundednessReviewer);
     }
 
     private DesignGuidanceRequest sampleRequest() {
