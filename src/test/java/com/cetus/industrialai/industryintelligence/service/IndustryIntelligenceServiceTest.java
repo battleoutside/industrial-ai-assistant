@@ -69,7 +69,7 @@ class IndustryIntelligenceServiceTest {
         assertEquals("S1", response.sources().getFirst().sourceId());
         assertEquals(List.of("S1"), response.findings().getFirst().sourceIds());
         assertEquals(
-                "本次公开信息调研形成1条可核验发现，主要涉及：高速互连产品持续更新。",
+                "本次公开信息收集形成1条可核验信息，主要涉及：高速互连产品持续更新。",
                 response.summary()
         );
     }
@@ -150,7 +150,7 @@ class IndustryIntelligenceServiceTest {
         assertEquals(1, response.findings().size());
         assertEquals(1, response.sourceCount());
         assertEquals(
-                "本次公开信息调研形成1条可核验发现，主要涉及：高速互连新品。",
+                "本次公开信息收集形成1条可核验信息，主要涉及：高速互连新品。",
                 response.summary()
         );
         assertFalse(response.summary().contains("IEC 63066"));
@@ -186,7 +186,7 @@ class IndustryIntelligenceServiceTest {
         assertEquals("https://example.com/a", response.sources().getFirst().url());
         assertEquals(List.of("S1"), response.findings().getFirst().sourceIds());
         assertEquals(
-                "本次公开信息调研形成1条可核验发现，主要涉及：有效发现。",
+                "本次公开信息收集形成1条可核验信息，主要涉及：有效发现。",
                 response.summary()
         );
     }
@@ -256,6 +256,99 @@ class IndustryIntelligenceServiceTest {
         );
         assertTrue(response.findings().isEmpty());
         assertEquals(0, response.sourceCount());
+    }
+
+    @Test
+    void shouldDiscardUnsupportedDraftSummaryWhenAllFindingsAreFiltered() {
+        ResearchDraft draft = new ResearchDraft(
+                "SUCCESS",
+                "某公司已经发布未经证实的新产品。",
+                List.of(
+                        new FindingDraft(
+                                "无法核验的信息",
+                                "该信息引用了不存在的来源编号。",
+                                List.of("S9")
+                        )
+                ),
+                List.of(
+                        new SourceDraft(
+                                "S1",
+                                "有效但未被正确引用的来源",
+                                "https://example.com/source",
+                                ""
+                        )
+                )
+        );
+        when(industryIntelligenceAgent.research(sampleRequest().question()))
+                .thenReturn(draft);
+
+        IndustryIntelligenceResponse response = industryIntelligenceService.analyze(
+                sampleRequest()
+        );
+
+        assertEquals(
+                IndustryIntelligenceResponse.Status.NO_RELEVANT_INFORMATION,
+                response.status()
+        );
+        assertEquals(
+                "未找到足以形成可核验信息条目的相关公开信息。",
+                response.summary()
+        );
+        assertFalse(response.summary().contains("某公司已经发布"));
+        assertTrue(response.findings().isEmpty());
+        assertTrue(response.sources().isEmpty());
+    }
+
+    @Test
+    void shouldRemoveUnusedSourcesAndCompactSourceIds() {
+        ResearchDraft draft = new ResearchDraft(
+                "SUCCESS",
+                "模型原始摘要。",
+                List.of(
+                        new FindingDraft(
+                                "【企业动态】有效信息",
+                                "该信息只由第二个来源支持。",
+                                List.of("B")
+                        )
+                ),
+                List.of(
+                        new SourceDraft(
+                                "A",
+                                "未被最终信息引用的来源",
+                                "https://example.com/unused",
+                                ""
+                        ),
+                        new SourceDraft(
+                                "B",
+                                "真正被引用的来源",
+                                "https://example.com/used",
+                                ""
+                        )
+                )
+        );
+        when(industryIntelligenceAgent.research(sampleRequest().question()))
+                .thenReturn(draft);
+
+        IndustryIntelligenceResponse response = industryIntelligenceService.analyze(
+                sampleRequest()
+        );
+
+        assertEquals(IndustryIntelligenceResponse.Status.SUCCESS, response.status());
+        assertEquals(1, response.sourceCount());
+        assertEquals(1, response.sources().size());
+        assertEquals("S1", response.sources().getFirst().sourceId());
+        assertEquals(
+                "https://example.com/used",
+                response.sources().getFirst().url()
+        );
+        assertEquals(
+                List.of("S1"),
+                response.findings().getFirst().sourceIds()
+        );
+        assertEquals(
+                "本次公开信息收集形成1条可核验信息，覆盖：企业动态。",
+                response.summary()
+        );
     }
 
     @Test

@@ -1,0 +1,30 @@
+
+/* 品牌中英文统一层级 */
+.brand-title {
+  color: #252a38;
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+}
+
+.brand-subtitle {
+  margin-top: 3px;
+  color: #9398a8;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+/* 首页品牌英文副标题 */
+.hero-product-en {
+  display: block;
+  margin-top: -2px;
+  color: #7f8496 !important;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.hero-description {
+  margin-top: 18px !important;
+}

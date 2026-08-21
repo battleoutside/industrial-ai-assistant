@@ -14,10 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * 行业信息咨询模块的业务编排服务。
@@ -81,7 +78,7 @@ public class IndustryIntelligenceService {
 
         if (validatedSources.sources().isEmpty()) {
             return noRelevantInformation(
-                    "未获得可核验的公开来源，系统未返回行业结论。"
+                    "未获得可核验的公开来源，系统未返回行业信息。"
             );
         }
 
@@ -93,40 +90,49 @@ public class IndustryIntelligenceService {
                 draft.findings(),
                 validatedSources.sourceIdMapping()
         );
-        List<Finding> findings = validatedFindings.findings();
+
+        // 只保留被最终 Finding 实际引用的来源，并再次压缩编号为 S1、S2...。
+        // 避免“来源存在但没有任何信息条目引用”的孤立来源出现在前端。
+        FinalizedResult finalizedResult = finalizeResult(
+                validatedFindings.findings(),
+                validatedSources.sources()
+        );
+        List<Finding> findings = finalizedResult.findings();
+        List<Source> sources = finalizedResult.sources();
 
         // -------- 【六】组装最终响应或执行安全降级 --------
         // 即使模型声称 SUCCESS，只要没有一条带有效来源的 Finding，
         // Java仍会降级为 NO_RELEVANT_INFORMATION。
+        //
+        // 注意：这里不能继续沿用 draft.summary。
+        // 因为 Finding 可能正是由于引用无效而被 Java 全部过滤，
+        // 此时原摘要中的具体事实也已经失去可核验证据。
         Status draftStatus = parseStatus(draft.status());
         if (draftStatus == Status.NO_RELEVANT_INFORMATION || findings.isEmpty()) {
             return noRelevantInformation(
-                    hasText(draft.summary())
-                            ? draft.summary().trim()
-                            : "未找到足以形成可核验结论的相关公开信息。"
+                    "未找到足以形成可核验信息条目的相关公开信息。"
             );
         }
 
         // -------- 【七】确保 Summary 与最终事实集合保持一致 --------
         // 正常情况下保留 LLM 的归纳能力；但如果 Java 后处理删除/合并了来源，
-        // 或过滤了 Finding/引用，则不再直接沿用 Draft.summary。
-        // 此时仅根据最终保留下来的 Finding 标题生成安全摘要，避免出现
-        // “摘要提到了某事实，但最终 findings/sources 已没有对应证据”的不一致。
+        // 过滤了 Finding/引用，或删除了未使用来源，则不再直接沿用 Draft.summary。
         boolean resultAdjusted = validatedSources.adjusted()
-                || validatedFindings.adjusted();
+                || validatedFindings.adjusted()
+                || finalizedResult.adjusted();
 
         String summary = resultAdjusted
                 ? buildSafeSummary(findings)
                 : hasText(draft.summary())
                 ? draft.summary().trim()
-                : "已根据公开信息整理出可追溯的行业发现。";
+                : "已根据公开信息整理出可追溯的行业信息。";
 
         return new IndustryIntelligenceResponse(
                 Status.SUCCESS,
                 summary,
                 findings,
-                validatedSources.sources(),
-                validatedSources.sources().size()
+                sources,
+                sources.size()
         );
     }
 
@@ -249,7 +255,7 @@ public class IndustryIntelligenceService {
 
             List<String> validSourceIds = originalSourceIds.stream()
                     .map(sourceIdMapping::get)
-                    .filter(mappedId -> mappedId != null)
+                    .filter(Objects::nonNull)
                     .distinct()
                     .toList();
 
@@ -284,19 +290,146 @@ public class IndustryIntelligenceService {
      * 避免额外 LLM 调用、延迟和 Token 成本，符合 MVP 原则。</p>
      */
     private String buildSafeSummary(List<Finding> findings) {
-        String topics = findings.stream()
+        List<String> categories = findings.stream()
+                .map(Finding::title)
+                .filter(this::hasText)
+                .map(this::extractCategory)
+                .filter(this::hasText)
+                .distinct()
+                .limit(4)
+                .toList();
+
+        if (!categories.isEmpty()) {
+            return "本次公开信息收集形成"
+                    + findings.size()
+                    + "条可核验信息，覆盖："
+                    + String.join("、", categories)
+                    + "。";
+        }
+
+        List<String> topics = findings.stream()
                 .map(Finding::title)
                 .filter(this::hasText)
                 .map(String::trim)
                 .distinct()
-                .reduce((left, right) -> left + "；" + right)
-                .orElse("可核验的行业公开信息");
+                .limit(3)
+                .toList();
 
-        return "本次公开信息调研形成"
+        String topicText = topics.isEmpty()
+                ? "可核验的行业公开信息"
+                : String.join("；", topics);
+
+        if (findings.size() > topics.size() && !topics.isEmpty()) {
+            topicText += "等";
+        }
+
+        return "本次公开信息收集形成"
                 + findings.size()
-                + "条可核验发现，主要涉及："
-                + topics
+                + "条可核验信息，主要涉及："
+                + topicText
                 + "。";
+    }
+
+    /**
+     * 提取信息标题中的分类前缀，例如“【企业动态】”。
+     * 没有分类前缀时返回空字符串。
+     */
+    private String extractCategory(String title) {
+        String normalized = title.trim();
+        if (!normalized.startsWith("【")) {
+            return "";
+        }
+
+        int endIndex = normalized.indexOf('】');
+        if (endIndex <= 1) {
+            return "";
+        }
+
+        return normalized.substring(1, endIndex).trim();
+    }
+
+    /**
+     * 删除没有被最终 Finding 引用的来源，并将保留下来的来源重新压缩编号。
+     *
+     * <p>这样可以确保最终 sources 与 findings 一一对应，
+     * sourceCount 也只统计真正用于前端信息条目的来源。</p>
+     */
+    private FinalizedResult finalizeResult(
+            List<Finding> findings,
+            List<Source> sources
+    ) {
+        if (findings == null || findings.isEmpty()) {
+            return new FinalizedResult(
+                    List.of(),
+                    List.of(),
+                    sources != null && !sources.isEmpty()
+            );
+        }
+
+        List<Source> finalSources = new ArrayList<>();
+        Map<String, String> sourceIdMapping = new LinkedHashMap<>();
+        boolean adjusted = false;
+
+        if (sources != null) {
+            for (Source source : sources) {
+                if (!isSourceUsed(findings, source.sourceId())) {
+                    adjusted = true;
+                    continue;
+                }
+
+                String newSourceId = "S" + (finalSources.size() + 1);
+                if (!newSourceId.equals(source.sourceId())) {
+                    adjusted = true;
+                }
+
+                sourceIdMapping.put(source.sourceId(), newSourceId);
+                finalSources.add(new Source(
+                        newSourceId,
+                        source.title(),
+                        source.url(),
+                        source.publishedAt()
+                ));
+            }
+        }
+
+        List<Finding> finalFindings = new ArrayList<>();
+        for (Finding finding : findings) {
+            List<String> remappedSourceIds = finding.sourceIds().stream()
+                    .map(sourceIdMapping::get)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+
+            if (remappedSourceIds.isEmpty()) {
+                adjusted = true;
+                continue;
+            }
+
+            if (!remappedSourceIds.equals(finding.sourceIds())) {
+                adjusted = true;
+            }
+
+            finalFindings.add(new Finding(
+                    finding.title(),
+                    finding.content(),
+                    remappedSourceIds
+            ));
+        }
+
+        return new FinalizedResult(
+                List.copyOf(finalFindings),
+                List.copyOf(finalSources),
+                adjusted
+        );
+    }
+
+    private boolean isSourceUsed(List<Finding> findings, String sourceId) {
+        for (Finding finding : findings) {
+            if (finding.sourceIds().contains(sourceId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -318,7 +451,8 @@ public class IndustryIntelligenceService {
      * 解析 Agent 返回的业务状态。
      */
     private Status parseStatus(String status) {
-        if (Status.SUCCESS.name().equals(status)) {
+        if (hasText(status)
+                && Status.SUCCESS.name().equalsIgnoreCase(status.trim())) {
             return Status.SUCCESS;
         }
         return Status.NO_RELEVANT_INFORMATION;
@@ -343,7 +477,7 @@ public class IndustryIntelligenceService {
     private IndustryIntelligenceResponse searchFailed() {
         return new IndustryIntelligenceResponse(
                 Status.SEARCH_FAILED,
-                "实时行业信息检索暂时不可用，系统未生成自动行业结论。",
+                "实时行业信息检索暂时不可用，系统未生成行业信息汇总。",
                 List.of(),
                 List.of(),
                 0
@@ -352,6 +486,20 @@ public class IndustryIntelligenceService {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    /**
+     * 最终事实与来源压缩后的内部结果。
+     *
+     * @param findings 最终保留的信息条目
+     * @param sources  仅保留实际被引用的来源
+     * @param adjusted 是否发生来源裁剪或重新编号
+     */
+    private record FinalizedResult(
+            List<Finding> findings,
+            List<Source> sources,
+            boolean adjusted
+    ) {
     }
 
     /**
