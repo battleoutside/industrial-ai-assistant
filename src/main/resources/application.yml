@@ -13,15 +13,11 @@ langchain4j:
   community:
     dashscope:
       chat-model:
-        model-name: qwen-plus
+        model-name: qwen3.5-plus
         api-key: ${DASHSCOPE_API_KEY} # 阿里云百炼 API Key
       embedding-model:
         model-name: text-embedding-v2
         api-key: ${DASHSCOPE_API_KEY}
-      streaming-chat-model:
-        model-name: qwen-plus
-        api-key: ${DASHSCOPE_API_KEY}
-
 
 bigmodel:
   api-key: ${BIGMODEL_API_KEY} # 智谱 MCP API Key
