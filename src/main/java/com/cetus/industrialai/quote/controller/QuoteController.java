@@ -38,7 +38,7 @@ public class QuoteController {
      * 并返回HTTP 400。
      *
      * <p>百分率统一使用小数，例如5%传入0.05；
-     * 用户无需也不能通过该接口传入利润率。</p>
+     * 用户无需也不能通过该接口传入成本加成率。</p>
      *
      * @param request 前端提交的报价请求
      * @return 智能报价Agent生成的完整报价结果

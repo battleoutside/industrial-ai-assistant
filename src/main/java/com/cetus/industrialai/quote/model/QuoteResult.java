@@ -26,7 +26,7 @@ import java.util.List;
  * @param additionalUnitAmount       非物料类单件固定费用
  * @param productionEfficiency       标准生产效率，单位为PCS/小时
  * @param laborCost                  当前产品单件人工成本
- * @param samplePrice                10PCS样品单价；样品使用固定利润系数
+ * @param samplePrice                10PCS样品单价；样品使用固定成本加成率
  * @param smallBatchPriceLow         1K小批量单价下限
  * @param smallBatchPriceHigh        1K小批量单价上限
  * @param massProductionPriceLow     5K量产单价下限

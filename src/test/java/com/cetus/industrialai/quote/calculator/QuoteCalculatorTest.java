@@ -74,7 +74,7 @@ class QuoteCalculatorTest {
         assertEquals(money("8.00"), result.confirmedAddedMaterialCost());
         assertTrue(result.materialCostFloorTriggered());
 
-        // 样品利润系数固定，只返回一个样品单价。
+        // 样品成本加成率固定，只返回一个样品单价。
         assertEquals(money("123.90"), result.samplePrice());
         assertEquals(money("86.73"), result.smallBatchPriceLow());
         assertEquals(money("89.83"), result.smallBatchPriceHigh());
