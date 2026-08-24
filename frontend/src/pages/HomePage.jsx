@@ -159,22 +159,6 @@ function HomePage() {
           </Col>
         ))}
       </Row>
-
-      <section className="product-entry">
-        <div>
-          <Text className="product-entry-label">PRODUCT DOCUMENTATION</Text>
-          <Title level={4} className="product-entry-title">
-            产品说明
-          </Title>
-          <Text className="product-entry-description">
-            项目目标、模块边界与整体设计将在 PRD 中统一说明。
-          </Text>
-        </div>
-
-        <Button disabled>
-          PRD 即将上线
-        </Button>
-      </section>
     </div>
   );
 }

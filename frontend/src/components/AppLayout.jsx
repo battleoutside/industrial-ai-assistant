@@ -1,6 +1,5 @@
 import {
   AppstoreOutlined,
-  FileTextOutlined,
   HomeOutlined,
   LineChartOutlined,
   SettingOutlined,
@@ -80,12 +79,6 @@ function AppLayout() {
           className="app-menu"
           onClick={({ key }) => navigate(key)}
         />
-
-        <div className="sidebar-footer">
-          <FileTextOutlined />
-          <Text className="sidebar-footer-text">产品说明</Text>
-          <Text className="sidebar-footer-badge">PRD</Text>
-        </div>
       </Sider>
 
       <Layout className="main-layout">

@@ -122,7 +122,7 @@
 
 同类询价常只调整长度、连接器或少量物料，但仍需重复查询历史报价、核对成本并填写明细。系统复用历史报价并记录物料差异，对缺价、漏项和快照异常转人工复核。
 
-![智能辅助报价完整调用链路](chain-png/quote-workflow.png)
+![智能辅助报价完整调用链路](../module-chain/quote-workflow.png)
 
 图 1 智能辅助报价从前端输入到结果展示的完整调用链路
 
@@ -149,7 +149,7 @@
 
 样品制作和工程排查依赖经验与带教，内部资料又分散在不同文件中。系统通过内部知识检索提供带来源的排查建议，减少重复求助，并沉淀可复用的工程知识。
 
-![工程设计指导完整调用链路](chain-png/engineering-guidance-workflow.png)
+![工程设计指导完整调用链路](../module-chain/engineering-guidance-workflow.png)
 
 图 2 工程设计指导从问题提交、知识检索到证据审核的完整调用链路
 
@@ -178,7 +178,7 @@
 
 行业公开信息分散在企业官网、媒体和展会等渠道，人工检索和整理耗时。系统按用户问题检索公开网页并生成带来源的资讯摘要。
 
-![行业信息咨询完整调用链路](chain-png/industry-intelligence-workflow.png)
+![行业信息咨询完整调用链路](../module-chain/industry-intelligence-workflow.png)
 
 图 3 行业信息咨询从 Agent 检索到来源校验的完整调用链路
 
