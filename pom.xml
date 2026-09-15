@@ -36,28 +36,33 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-mcp</artifactId>
-            <version>1.1.0-beta7</version>
+            <version>1.2.0-beta8</version>
         </dependency>
         <!--        RAG 简易配置/默认配置-->
         <!--        <dependency>-->
         <!--            <groupId>dev.langchain4j</groupId>-->
         <!--            <artifactId>langchain4j-easy-rag</artifactId>-->
-        <!--            <version>1.1.0-beta7</version>-->
+        <!--            <version>1.2.0-beta8</version>-->
         <!--        </dependency>-->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-spring-boot-starter</artifactId>
-            <version>1.1.0-beta7</version>
+            <version>1.2.0-beta8</version>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j</artifactId>
-            <version>1.1.0</version>
+            <version>1.2.0</version>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-community-dashscope-spring-boot-starter</artifactId>
-            <version>1.1.0-beta7</version>
+            <version>1.2.0-beta8</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai</artifactId>
+            <version>1.2.0</version>
         </dependency>
         <!-- Spring MVC和HTTP接口支持 -->
         <dependency>

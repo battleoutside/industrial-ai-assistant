@@ -9,15 +9,19 @@ server:
   servlet:
     context-path: /api
 
+app:
+  ai:
+    qwen:
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api-key: ${DASHSCOPE_API_KEY} # 阿里云百炼 API Key
+      model-name: qwen3.5-plus
+
 langchain4j:
   community:
     dashscope:
-      chat-model:
-        model-name: qwen3.5-plus
-        api-key: ${DASHSCOPE_API_KEY} # 阿里云百炼 API Key
       embedding-model:
         model-name: text-embedding-v2
-        api-key: ${DASHSCOPE_API_KEY}
+        api-key: ${DASHSCOPE_API_KEY} # 阿里云百炼 API Key
 
 bigmodel:
   api-key: ${BIGMODEL_API_KEY} # 智谱 MCP API Key
